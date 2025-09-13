@@ -1,33 +1,29 @@
 import requests
 import json
 
-def uni(url):
+def bypass_url(short_url):
     try:
-        res = requests.post(
-            "https://freeseptemberapi.vercel.app/bypass",
-            json={"url": url},
-            headers={'User-Agent': 'Mozilla/5.0'}  # To avoid blocks
-        )
-        _data = res.text
-        print(f"Raw Response: {_data[:200]}...")  # Debug
+        # Use bypass.city API
+        api_url = f"https://bypass.city/api/bypass?apikey=free&url={short_url}"
+        response = requests.get(api_url)
+        response.raise_for_status()  # Raise error for bad status
         
-        if "message" in _data or "error" in _data.lower():
-            print(f"API Error: {_data}")
+        data = response.json()
+        direct_url = data.get('destination') or data.get('url')
+        
+        if direct_url:
+            print(f"Direct URL: {direct_url}")
+            return direct_url
+        else:
+            print("No direct URL found.")
             return None
-        
-        _j = json.loads(_data)
-        return _j.get("url")
     except requests.exceptions.RequestException as e:
-        print(f"Request Error (API down or network issue): {e}")
+        print(f"Error: {e}")
         return None
-    except json.JSONDecodeError as e:
-        print(f"JSON Parse Error: {e}")
+    except json.JSONDecodeError:
+        print("Invalid JSON response from API.")
         return None
 
 # Example Usage
 test_url = "https://lksfy.com/demo"  # Replace with your URL
-result = uni(test_url)
-if result:
-    print(f"Direct URL: {result}")
-else:
-    print("Bypass failed. API may be unavailable.")
+bypass_url(test_url)
