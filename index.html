@@ -15,12 +15,13 @@
         .error { background: #f8d7da; color: #721c24; }
         h1 { text-align: center; color: #333; }
         p { text-align: center; color: #666; }
+        #debug { margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px; display: none; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Universal Premium URL Bypasser</h1>
-        <p>Supports 100+ premium shorteners like Lksfy, adcash.in, adlinkfly.in, droplink, shrinkme, and many more! Enter URL and get direct link.</p>
+        <p>Supports 100+ premium shorteners. If API fails, tries manual bypass for basic links.</p>
         
         <input type="url" id="urlInput" placeholder="Enter short URL (e.g., https://lksfy.com/demo)" required>
         
@@ -28,6 +29,7 @@
         
         <div id="loading">Loading... Bypassing via API.</div>
         <div id="output"></div>
+        <div id="debug"></div>
     </div>
 
     <script>
@@ -41,38 +43,80 @@
             
             const loading = document.getElementById('loading');
             const output = document.getElementById('output');
+            const debug = document.getElementById('debug');
             
             loading.style.display = 'block';
             output.style.display = 'none';
+            debug.style.display = 'none';
             
             try {
-                const response = await fetch('https://freeseptemberapi.vercel.app/bypass', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url: url })
-                });
+                // Try API first
+                let directUrl = await tryApiBypass(url);
+                if (!directUrl) {
+                    // Fallback to manual bypass
+                    console.log('API failed, trying manual bypass...');
+                    directUrl = await manualBypass(url);
+                }
                 
-                const data = await response.text(); // Use .text() first to check for error
-                
-                if (response.ok && !data.includes('message')) {
-                    const jsonData = JSON.parse(data);
-                    const directUrl = jsonData.url;
-                    if (directUrl) {
-                        showOutput(`Direct Link: <a href="${directUrl}" target="_blank">${directUrl}</a>`);
-                    } else {
-                        showOutput('No direct link found in response.', true);
-                    }
+                if (directUrl) {
+                    showOutput(`Direct Link: <a href="${directUrl}" target="_blank">${directUrl}</a>`);
                 } else {
-                    // Handle API error (e.g., "message" field)
-                    showOutput(`API Error: ${data}`, true);
+                    showOutput('Bypass failed. API may be down. Try manual method or check console.', true);
+                    showDebug('Debug: API response unavailable. Consider using Python script.');
                 }
             } catch (error) {
-                showOutput(`Error: ${error.message} (Check if API is available or CORS issue.)`, true);
+                showOutput(`Error: ${error.message}`, true);
+                showDebug(`Full Error: ${error.message}. Type: ${error.name}. Check CORS extension or API status.`);
                 console.error(error);
             } finally {
                 loading.style.display = 'none';
+            }
+        }
+        
+        async function tryApiBypass(url) {
+            // Try with CORS proxy as fallback
+            const apiUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://freeseptemberapi.vercel.app/bypass');
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: url })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API Response not OK: ${response.status}`);
+            }
+            
+            const data = await response.text();
+            if (data.includes('message') || data.includes('error')) {
+                throw new Error(`API Error: ${data}`);
+            }
+            
+            const jsonData = JSON.parse(data);
+            return jsonData.url || null;
+        }
+        
+        async function manualBypass(url) {
+            // Simple manual bypass for basic shorteners (e.g., bit.ly, tinyurl)
+            // For premium ones, this is limited; use for redirects only
+            try {
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const html = data.contents;
+                
+                // Basic redirect extraction
+                const redirectMatch = html.match(/<meta[^>]*http-equiv="refresh"[^>]*content="[^"]*url=([^"]*)"/i);
+                if (redirectMatch) {
+                    return redirectMatch[1];
+                }
+                
+                // Or Location header simulation (not full, but basic)
+                return null; // For complex premium, API needed
+            } catch (e) {
+                console.log('Manual bypass failed:', e);
+                return null;
             }
         }
         
@@ -81,6 +125,12 @@
             output.innerHTML = message;
             output.className = isError ? 'error' : '';
             output.style.display = 'block';
+        }
+        
+        function showDebug(message) {
+            const debug = document.getElementById('debug');
+            debug.innerHTML = message;
+            debug.style.display = 'block';
         }
     </script>
 </body>
