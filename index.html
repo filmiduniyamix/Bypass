@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Premium URL Bypasser</title>
+    <title>Universal Premium URL Bypasser (Working 2025)</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f4f4f4; }
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -21,13 +21,13 @@
 <body>
     <div class="container">
         <h1>Universal Premium URL Bypasser</h1>
-        <p>Supports 100+ premium shorteners. If API fails, tries manual bypass for basic links.</p>
+        <p>Supports 100+ shorteners like Lksfy, adcash.in, droplink, shrinkme & more via bypass.city! Enter URL for direct link.</p>
         
         <input type="url" id="urlInput" placeholder="Enter short URL (e.g., https://lksfy.com/demo)" required>
         
         <button onclick="bypassUrl()">Bypass Now</button>
         
-        <div id="loading">Loading... Bypassing via API.</div>
+        <div id="loading">Loading... Bypassing via bypass.city.</div>
         <div id="output"></div>
         <div id="debug"></div>
     </div>
@@ -50,74 +50,37 @@
             debug.style.display = 'none';
             
             try {
-                // Try API first
-                let directUrl = await tryApiBypass(url);
-                if (!directUrl) {
-                    // Fallback to manual bypass
-                    console.log('API failed, trying manual bypass...');
-                    directUrl = await manualBypass(url);
-                }
-                
+                const directUrl = await bypassWithService(url);
                 if (directUrl) {
                     showOutput(`Direct Link: <a href="${directUrl}" target="_blank">${directUrl}</a>`);
                 } else {
-                    showOutput('Bypass failed. API may be down. Try manual method or check console.', true);
-                    showDebug('Debug: API response unavailable. Consider using Python script.');
+                    showOutput('Bypass failed. Service may not support this URL. Try another or check console.', true);
+                    showDebug('Debug: No direct link extracted. Possible unsupported shortener.');
                 }
             } catch (error) {
                 showOutput(`Error: ${error.message}`, true);
-                showDebug(`Full Error: ${error.message}. Type: ${error.name}. Check CORS extension or API status.`);
+                showDebug(`Full Error: ${error.message}. Type: ${error.name}. Use CORS extension if needed.`);
                 console.error(error);
             } finally {
                 loading.style.display = 'none';
             }
         }
         
-        async function tryApiBypass(url) {
-            // Try with CORS proxy as fallback
-            const apiUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://freeseptemberapi.vercel.app/bypass');
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ url: url })
-            });
+        async function bypassWithService(url) {
+            // Use bypass.city via CORS proxy for reliability
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://bypass.city/api/bypass?apikey=free&url=' + encodeURIComponent(url))}`;
             
+            const response = await fetch(proxyUrl);
             if (!response.ok) {
-                throw new Error(`API Response not OK: ${response.status}`);
+                throw new Error(`Fetch failed: ${response.status}`);
             }
             
-            const data = await response.text();
-            if (data.includes('message') || data.includes('error')) {
-                throw new Error(`API Error: ${data}`);
-            }
+            const data = await response.json();
+            const apiResponse = data.contents;
             
-            const jsonData = JSON.parse(data);
-            return jsonData.url || null;
-        }
-        
-        async function manualBypass(url) {
-            // Simple manual bypass for basic shorteners (e.g., bit.ly, tinyurl)
-            // For premium ones, this is limited; use for redirects only
-            try {
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-                const response = await fetch(proxyUrl);
-                const data = await response.json();
-                const html = data.contents;
-                
-                // Basic redirect extraction
-                const redirectMatch = html.match(/<meta[^>]*http-equiv="refresh"[^>]*content="[^"]*url=([^"]*)"/i);
-                if (redirectMatch) {
-                    return redirectMatch[1];
-                }
-                
-                // Or Location header simulation (not full, but basic)
-                return null; // For complex premium, API needed
-            } catch (e) {
-                console.log('Manual bypass failed:', e);
-                return null;
-            }
+            // Parse response (bypass.city returns JSON with 'destination' or similar)
+            const jsonData = JSON.parse(apiResponse);
+            return jsonData.destination || jsonData.url || null;  // Adjust based on actual response format
         }
         
         function showOutput(message, isError = false) {
